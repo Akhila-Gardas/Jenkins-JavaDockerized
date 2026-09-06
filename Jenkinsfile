@@ -12,7 +12,7 @@ stages {
     stage('Checkout') {
         steps {
             git branch: 'main',
-                url: 'https://github.com/bhuvan-raj/Jenkins-JavaDockerized.git'
+                url: 'https://github.com/Akhila-Gardas/Jenkins-JavaDockerized.git'
         }
     }
 
