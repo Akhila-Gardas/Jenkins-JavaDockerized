@@ -28,7 +28,7 @@ FROM eclipse-temurin:17-jdk-alpine
 
 COPY target/*.jar app.jar
 
-EXPOSE 8081
+EXPOSE 8080
 
 ENTRYPOINT ["java", "-jar", "/app.jar"]
 '''
@@ -71,7 +71,7 @@ docker rm -f javaapp || true
 
 docker run -d \
     --name javaapp \
-    -p 8081:8081 \
+    -p 8081:8080 \
     $IMAGE:latest
 
 docker ps
