@@ -1,61 +1,82 @@
 pipeline {
-  agent any
-  environment {
-    IMAGE = 'bhuvanraj123/containerized-java'
-    DOCKER_CREDS = credentials('docker-id') // Make sure this ID exists in Jenkins
-  }
-  stages {
-    stage('Checkout') {
-      steps {
-        git branch: 'main', url: 'https://github.com/bhuvan-raj/Jenkins-JavaDockerized.git'
-      }
+
+    agent any
+
+    environment {
+        IMAGE = 'bhuvanraj123/containerized-java'
     }
-    stage('Build JAR') {
-      steps {
-        sh 'mvn clean package -DskipTests'
-      }
-    }
-    stage('Generate Dockerfile') {
-      steps {
-        script {
-          writeFile file: 'Dockerfile', text: """
+
+    stages {
+
+        stage('Checkout') {
+            steps {
+                git branch: 'main',
+                    url: 'https://github.com/bhuvan-raj/Jenkins-JavaDockerized.git'
+            }
+        }
+
+        stage('Build JAR') {
+            steps {
+                sh 'mvn clean package -DskipTests'
+            }
+        }
+
+        stage('Generate Dockerfile') {
+            steps {
+                writeFile file: 'Dockerfile', text: '''
 FROM eclipse-temurin:17-jdk-alpine
-ARG JAR_FILE=target/*.jar
-COPY \${JAR_FILE} app.jar
-EXPOSE 7500
+
+COPY target/*.jar app.jar
+
+EXPOSE 8081
+
 ENTRYPOINT ["java", "-jar", "/app.jar"]
-"""
+'''
+            }
         }
-      }
-    }
-    stage('Build Docker Image') {
-      steps {
-        script {
-          docker.build(IMAGE)
+
+        stage('Build Docker Image') {
+            steps {
+                script {
+                    docker.build("${IMAGE}:latest")
+                }
+            }
         }
-      }
-    }
-    stage('Push to DockerHub') {
-      steps {
-        script {
-          withCredentials([usernamePassword(credentialsId: 'docker-id', passwordVariable: 'DOCKER_PASSWORD', usernameVariable: 'DOCKER_USERNAME')]) {
-            sh 'echo $DOCKER_PASSWORD | docker login -u $DOCKER_USERNAME --password-stdin'
-            sh 'docker push $IMAGE:latest'
-            sh 'docker tag $IMAGE:latest $IMAGE:latest'
-          }
+
+        stage('Push to DockerHub') {
+            steps {
+                withCredentials([
+                    usernamePassword(
+                        credentialsId: 'docker-id',
+                        passwordVariable: 'DOCKER_PASSWORD',
+                        usernameVariable: 'DOCKER_USERNAME'
+                    )
+                ]) {
+                    sh '''
+                        echo $DOCKER_PASSWORD | docker login -u $DOCKER_USERNAME --password-stdin
+                        docker push $IMAGE:latest
+                    '''
+                }
+            }
         }
-      }
+
+        stage('Run Container') {
+            steps {
+                sh '''
+                    docker rm -f javaapp || true
+
+                    docker run -d \
+                    -p 8081:8081 \
+                    --name javaapp \
+                    $IMAGE:latest
+                '''
+            }
+        }
     }
-    stage('Run Container') {
-      steps {
-        sh 'docker rm -f javaapp || true'
-        sh 'docker run -d -p 7500:8080 --name javaapp $IMAGE:latest'
-      }
+
+    post {
+        always {
+            sh 'docker logout || true'
+        }
     }
-  }
-  post {
-    always {
-      sh 'docker logout'
-    }
-  }
 }
