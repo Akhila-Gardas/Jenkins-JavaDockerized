@@ -3,7 +3,7 @@ pipeline {
     agent any
 
     environment {
-        IMAGE = 'bhuvanraj123/containerized-java'
+        IMAGE = 'akhilag28/containerized-java'
     }
 
     stages {
