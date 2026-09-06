@@ -41,7 +41,10 @@ ENTRYPOINT ["java", "-jar", "/app.jar"]
 ```
     stage('Build Docker Image') {
         steps {
-            sh 'docker build -t $IMAGE:latest .'
+            sh '''
+                docker build -t $IMAGE:latest .
+                docker images | grep containerized-java
+            '''
         }
     }
 
@@ -50,16 +53,18 @@ ENTRYPOINT ["java", "-jar", "/app.jar"]
             withCredentials([
                 usernamePassword(
                     credentialsId: 'docker-id',
-                    passwordVariable: 'DOCKER_PASSWORD',
-                    usernameVariable: 'DOCKER_USERNAME'
+                    usernameVariable: 'DOCKER_USERNAME',
+                    passwordVariable: 'DOCKER_PASSWORD'
                 )
             ]) {
                 sh '''
-                    echo "Logging into Docker Hub as: $DOCKER_USERNAME"
+                    echo "Docker Hub username used by Jenkins: $DOCKER_USERNAME"
 
-                    echo $DOCKER_PASSWORD | docker login \
-                    -u $DOCKER_USERNAME \
-                    --password-stdin
+                    echo "$DOCKER_PASSWORD" | docker login \
+                        --username "$DOCKER_USERNAME" \
+                        --password-stdin
+
+                    echo "Pushing image: $IMAGE:latest"
 
                     docker push $IMAGE:latest
                 '''
@@ -73,9 +78,11 @@ ENTRYPOINT ["java", "-jar", "/app.jar"]
                 docker rm -f javaapp || true
 
                 docker run -d \
-                -p 8081:8081 \
-                --name javaapp \
-                $IMAGE:latest
+                    --name javaapp \
+                    -p 8081:8081 \
+                    $IMAGE:latest
+
+                docker ps
             '''
         }
     }
@@ -84,6 +91,15 @@ ENTRYPOINT ["java", "-jar", "/app.jar"]
 post {
     always {
         sh 'docker logout || true'
+    }
+
+    success {
+        echo 'Pipeline completed successfully!'
+        echo 'Application should be available on port 8081.'
+    }
+
+    failure {
+        echo 'Pipeline failed. Check the failed stage above.'
     }
 }
 ```
